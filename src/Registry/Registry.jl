@@ -45,7 +45,7 @@ using ..Pkg.PlatformEngines: download_verify_unpack, download, download_verify, 
 using UUIDs, LibGit2, TOML, Dates
 import FileWatching
 
-public add, rm, status, update
+public add, rm, status, update, RegistryInstance
 
 include("registry_instance.jl")
 
