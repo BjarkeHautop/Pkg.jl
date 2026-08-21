@@ -158,9 +158,14 @@ for f in (:develop, :add, :rm, :up, :pin, :free, :test, :build, :status, :why, :
     @eval begin
         $f(pkg::Union{AbstractString, PackageSpec}; kwargs...) = $f([pkg]; kwargs...)
         $f(pkgs::Vector{<:AbstractString}; kwargs...) = $f([PackageSpec(pkg) for pkg in pkgs]; kwargs...)
-        function $f(pkgs::Vector{PackageSpec}; io::IO = $(f === :status ? :stdout_f : :stderr_f)(), kwargs...)
-            $(f != :precompile) && Registry.download_default_registries(io)
-            ctx = Context()
+        function $f(
+                pkgs::Vector{PackageSpec}; io::IO = $(f === :status ? :stdout_f : :stderr_f)(),
+                registries::Union{Nothing, Vector{Registry.RegistryInstance}} = nothing, kwargs...
+            )
+            # With an explicit registry set there is nothing to discover, and installing
+            # the default registries would touch the depot for no reason.
+            $(f != :precompile) && registries === nothing && Registry.download_default_registries(io)
+            ctx = Context(; registries)
             # Save initial environment for undo/redo functionality
             if $(f != :precompile) && !saved_initial_snapshot[]
                 add_snapshot_to_undo(ctx.env)
@@ -1298,7 +1303,7 @@ function instantiate(
         update_on_mismatch::Bool = false, kwargs...
     )
     Context!(ctx; kwargs...)
-    if Registry.download_default_registries(ctx.io)
+    if !ctx.registries_explicit && Registry.download_default_registries(ctx.io)
         copy!(ctx.registries, Registry.reachable_registries())
     end
     Operations.ensure_manifest_registries!(ctx)

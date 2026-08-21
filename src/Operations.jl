@@ -93,6 +93,9 @@ tracking_registered_version(pkg::Union{PackageSpec, PackageEntry}, julia_version
 # Try to download all registries referenced in `ctx.env.manifest.registries`.
 # Warn if some fail, but don't error (packages may still work with the registries we have).
 function ensure_manifest_registries!(ctx::Context)
+    # The caller pinned down the registry set, so do not install further registries
+    # into the depot and add them to it.
+    ctx.registries_explicit && return
     manifest_regs = ctx.env.manifest.registries
     isempty(manifest_regs) && return
 
@@ -2187,7 +2190,10 @@ function update_registries(ctx::Context; force::Bool = true, kwargs...)
     OFFLINE_MODE[] && return
     !force && UPDATED_REGISTRY_THIS_SESSION[] && return
     Registry.update(; io = ctx.io, kwargs...)
-    copy!(ctx.registries, Registry.reachable_registries())
+    # `Registry.update` only writes the updated registry files to disk, so read them
+    # back in so the rest of the operation sees the new contents (#2571). A registry
+    # set supplied by the caller is not derived from the depots, so it is left alone.
+    ctx.registries_explicit || copy!(ctx.registries, Registry.reachable_registries())
     return UPDATED_REGISTRY_THIS_SESSION[] = true
 end
 
