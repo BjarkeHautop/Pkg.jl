@@ -92,6 +92,26 @@ pkg> registry up
 Registries automatically update once per session when a package operation is performed so it
 rarely has to be done manually.
 
+### Resolving against a specific set of registries
+
+By default, Pkg resolves against the registries installed in the depots. An
+operation can instead be given the exact set of registries to use, by passing
+[`RegistryInstance`](@ref Pkg.Registry.RegistryInstance)s as the `registries`
+keyword argument:
+
+```julia
+registry = Pkg.Registry.RegistryInstance("/path/to/registry")
+Pkg.add("Example"; registries = [registry])
+```
+
+The supplied set is the whole set: registries installed in the depots are not
+consulted, and the registry passed in is used without being installed. This is
+useful for testing against a registry that should not be added to the depot, and
+for builds that must resolve against a known registry state.
+
+!!! compat "Julia 1.14"
+    The `registries` keyword argument requires at least Julia 1.14.
+
 ## Registry format
 
 In a registry, each package gets its own directory; in that directory

@@ -370,6 +370,26 @@ function uncompress_registry(compressed_tar::AbstractString)
     return data
 end
 
+"""
+    Pkg.Registry.RegistryInstance(path::AbstractString)
+
+A registry loaded from `path`, which may either be a directory containing a
+`Registry.toml` or the `.toml` file of a compressed registry. The registry does
+not have to be installed in a depot.
+
+The contents are assumed to be constant for the lifetime of the object; construct
+a new one to pick up changes made on disk.
+
+Pass a `Vector{RegistryInstance}` as the `registries` keyword argument of a Pkg
+operation to resolve against those registries:
+
+```julia
+registry = Pkg.Registry.RegistryInstance("/path/to/registry")
+Pkg.add("Example"; registries = [registry])
+```
+
+See also [`Pkg.Registry.add`](@ref).
+"""
 mutable struct RegistryInstance
     path::String
     tree_info::Union{Base.SHA1, Nothing}

@@ -66,6 +66,7 @@ Pkg.Registry.add
 Pkg.Registry.rm
 Pkg.Registry.update
 Pkg.Registry.status
+Pkg.Registry.RegistryInstance
 ```
 
 ## [Artifacts API Reference](@id Artifacts-Reference)
