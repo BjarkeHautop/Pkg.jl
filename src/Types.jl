@@ -504,18 +504,40 @@ function num_concurrent_downloads()
     return num
 end
 # ENV variables to set some of these defaults?
-Base.@kwdef mutable struct Context
-    env::EnvCache = EnvCache()
-    io::IO = stderr_f()
-    use_git_for_all_downloads::Bool = false
-    use_only_tarballs_for_downloads::Bool = false
-    num_concurrent_downloads::Int = num_concurrent_downloads()
+mutable struct Context
+    env::EnvCache
+    io::IO
+    use_git_for_all_downloads::Bool
+    use_only_tarballs_for_downloads::Bool
+    num_concurrent_downloads::Int
 
-    # Registris
-    registries::Vector{Registry.RegistryInstance} = Registry.reachable_registries()
+    # Registries
+    registries::Vector{Registry.RegistryInstance}
+    # Whether `registries` was supplied by the caller instead of being discovered
+    # from the depots. An explicitly supplied set belongs to the caller: operations
+    # resolve against exactly that set and never replace it with the depot contents.
+    registries_explicit::Bool
 
     # The Julia Version to resolve with respect to
-    julia_version::Union{VersionNumber, Nothing} = VERSION
+    julia_version::Union{VersionNumber, Nothing}
+end
+
+function Context(;
+        env::EnvCache = EnvCache(),
+        io::IO = stderr_f(),
+        use_git_for_all_downloads::Bool = false,
+        use_only_tarballs_for_downloads::Bool = false,
+        num_concurrent_downloads::Int = num_concurrent_downloads(),
+        registries::Union{Nothing, Vector{Registry.RegistryInstance}} = nothing,
+        julia_version::Union{VersionNumber, Nothing} = VERSION,
+    )
+    return Context(
+        env, io, use_git_for_all_downloads, use_only_tarballs_for_downloads,
+        num_concurrent_downloads,
+        something(registries, Registry.reachable_registries()),
+        registries !== nothing,
+        julia_version,
+    )
 end
 
 project_uuid(env::EnvCache) = project_uuid(env.project, env.project_file)
@@ -651,7 +673,13 @@ Context!(kw_context::Vector{Pair{Symbol, Any}})::Context =
     Context!(Context(); kw_context...)
 function Context!(ctx::Context; kwargs...)
     for (k, v) in kwargs
-        setfield!(ctx, k, v)
+        if k === :registries
+            # The set now belongs to the caller; see `Context`.
+            ctx.registries = v
+            ctx.registries_explicit = true
+        else
+            setfield!(ctx, k, v)
+        end
     end
 
     # Highlight for logging purposes if julia_version is set to a different version than current VERSION
