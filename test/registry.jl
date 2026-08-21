@@ -579,4 +579,83 @@ end
     end
 end
 
+const EXAMPLE_UUID = UUID("7876af07-990d-54b4-ab0e-23690620f79a")
+
+# Tree hashes of real `Example` releases, so that a resolved version can be installed.
+const EXAMPLE_TREE_HASHES = Dict(
+    v"0.5.1" => "8eb7b4d4ca487caade9ba3e85932e28ce6d6e1f8",
+    v"0.5.3" => "46e44e869b4d90b96bd8ed1fdcf32244fddfb6cc",
+)
+
+# A registry offering a single version of `Example`.
+function setup_standalone_registry(
+        dir, version;
+        name = "Standalone", uuid = "6f4f4c1a-9b06-4b7e-9e2f-7a0dbb9d2b3e"
+    )
+    regpath = joinpath(dir, name)
+    mkpath(joinpath(regpath, "Example"))
+    write(
+        joinpath(regpath, "Registry.toml"), """
+        name = "$(name)"
+        uuid = "$(uuid)"
+        repo = "https://github.com"
+        [packages]
+        $(EXAMPLE_UUID) = { name = "Example", path = "Example" }
+        """
+    )
+    write(
+        joinpath(regpath, "Example", "Package.toml"), """
+        name = "Example"
+        uuid = "$(EXAMPLE_UUID)"
+        repo = "https://github.com/JuliaLang/Example.jl.git"
+        """
+    )
+    write(
+        joinpath(regpath, "Example", "Versions.toml"), """
+        ["$(version)"]
+        git-tree-sha1 = "$(EXAMPLE_TREE_HASHES[version])"
+        """
+    )
+    write(joinpath(regpath, "Example", "Deps.toml"), "")
+    write(
+        joinpath(regpath, "Example", "Compat.toml"), """
+        ["0.5"]
+        julia = "1"
+        """
+    )
+    return regpath
+end
+
+@testset "explicitly supplied registries" begin
+    @testset "can be used without being installed" begin
+        isolate(loaded_depot = false) do
+            mktempdir() do dir
+                reg = Pkg.Registry.RegistryInstance(setup_standalone_registry(dir, v"0.5.3"))
+                Pkg.activate(; temp = true)
+                Pkg.add("Example"; registries = [reg])
+                @test Pkg.dependencies()[EXAMPLE_UUID].version == v"0.5.3"
+                # nothing had to be installed into the depot to make that work
+                @test isempty(Pkg.Registry.reachable_registries())
+            end
+        end
+    end
+
+    @testset "exclude registries installed in the depot" begin
+        isolate(loaded_depot = false) do
+            mktempdir() do dir
+                Pkg.Registry.add(
+                    path = setup_standalone_registry(
+                        dir, v"0.5.3";
+                        name = "Installed", uuid = "9c6e8b4f-3d1a-4a5e-8f2b-1c7d0e4a6b93"
+                    )
+                )
+                reg = Pkg.Registry.RegistryInstance(setup_standalone_registry(dir, v"0.5.1"))
+                Pkg.activate(; temp = true)
+                Pkg.add("Example"; registries = [reg])
+                @test Pkg.dependencies()[EXAMPLE_UUID].version == v"0.5.1"
+            end
+        end
+    end
+end
+
 end # module
