@@ -2188,12 +2188,15 @@ end
 # Update registries AND read them back in.
 function update_registries(ctx::Context; force::Bool = true, kwargs...)
     OFFLINE_MODE[] && return
+    # The caller pinned down the registry set, so the depot registries are not what this
+    # operation resolves against. Updating them would touch the depot, and the network,
+    # for a result that is then thrown away.
+    ctx.registries_explicit && return
     !force && UPDATED_REGISTRY_THIS_SESSION[] && return
     Registry.update(; io = ctx.io, kwargs...)
     # `Registry.update` only writes the updated registry files to disk, so read them
-    # back in so the rest of the operation sees the new contents (#2571). A registry
-    # set supplied by the caller is not derived from the depots, so it is left alone.
-    ctx.registries_explicit || copy!(ctx.registries, Registry.reachable_registries())
+    # back in so the rest of the operation sees the new contents (#2571).
+    copy!(ctx.registries, Registry.reachable_registries())
     return UPDATED_REGISTRY_THIS_SESSION[] = true
 end
 

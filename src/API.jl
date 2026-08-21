@@ -466,7 +466,7 @@ function up(
         return
     end
     if update_registry
-        Registry.download_default_registries(ctx.io)
+        ctx.registries_explicit || Registry.download_default_registries(ctx.io)
         Operations.update_registries(ctx; force = true)
     end
     Operations.prune_manifest(ctx.env)
